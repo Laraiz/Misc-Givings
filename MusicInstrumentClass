@@ -76,7 +76,10 @@ public class Instrument : MonoBehaviour
                 int Octave = displayedOctave - InstrumentOctaveOffset;
 
                 string noteName = sampleName.Substring(fileName.Length + 1 + 2);
+                
 
+                /// HOW THE FUCK DO I GET INT DATA FROM STRINGS LIKE THIS FML
+            }
 
             }
         }
