@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 public class MusicDefinitions : MonoBehaviour
 {
-    #region Dictionary
+    #region Dictionaries
     public static Dictionary<string, int> StringtoIntDic = new Dictionary<string, int>()
     {
         //should probably add variations to noteas but am i gunna?
@@ -48,112 +48,215 @@ public class MusicDefinitions : MonoBehaviour
                 return 0;
         }
     }
-    public static float[] MinNotesinMeasure(TimeSignature timeSig)
-    {
-        float notesPerMeasure = timeSig.topNumber*4f / timeSig.bottomNumber;
-                                            //find the smallest amount of notes that can fit in the measure
-        float[] maxNoteLengthStorage = new float[20]; //float size is max notesize
-        int iterations = 0;
-        while (SumFloats(maxNoteLengthStorage) + .49f * timeSig.bottomNumber < notesPerMeasure && iterations < maxNoteLengthStorage.Length)
-        {
-
-            float curLength = SumFloats(maxNoteLengthStorage);
-
-            bool isWholeShorterthanLength = curLength + 4 * timeSig.bottomNumber < notesPerMeasure;
-            bool doesWholeEqualLength = Mathf.Approximately(curLength + 4 / timeSig.bottomNumber, notesPerMeasure);
-
-            bool isHalfShorterthanLength = curLength + 2 * timeSig.bottomNumber < notesPerMeasure;
-            bool doesHalfEqualLength = Mathf.Approximately(curLength + 2 / timeSig.bottomNumber, notesPerMeasure);
-
-            bool isQuarterShorterthanLength = curLength + 1 * timeSig.bottomNumber < notesPerMeasure;
-            bool doesQuarterEqualLength = Mathf.Approximately(curLength + 1 / timeSig.bottomNumber, notesPerMeasure);
-
-            bool isEighthShorterthanLength = curLength + .5f * timeSig.bottomNumber < notesPerMeasure;
-            bool doesEighthEqualLength = Mathf.Approximately(curLength + .5f / timeSig.bottomNumber, notesPerMeasure);
-
-            if ( isWholeShorterthanLength || doesWholeEqualLength)
-            {
-                maxNoteLengthStorage[iterations] = 4;
-            }
-            else if (isHalfShorterthanLength || doesHalfEqualLength) 
-            {
-                maxNoteLengthStorage[iterations] = 2;
-            }
-
-            else if ( isQuarterShorterthanLength|| doesQuarterEqualLength)
-            {
-                maxNoteLengthStorage[iterations] = 1;
-            }
-            else if ( isEighthShorterthanLength|| doesEighthEqualLength)
-            {
-                maxNoteLengthStorage[iterations] = .5f;
-            }
-
-            iterations++;
-        }
-
-        return maxNoteLengthStorage;
-        int unNullLength = 0;
-
-        for (int i = 0; i < maxNoteLengthStorage.Length; i++)
-        {
-            if (maxNoteLengthStorage[i] != 0) unNullLength++;
-        }
-
-        float[] noteLengths = new float[unNullLength];
-
-        for (int i = 0; i < noteLengths.Length; i++)
-        {
-            noteLengths[i] = maxNoteLengthStorage[i];
-        }
-        //return noteLengths;
-    }
-    public static float SumFloats(float[] floats)
-    {
-        float additionProduct = 0;
-        for (int i = 0; i < floats.Length; i++)
-        {
-            additionProduct += floats[i];
-        }
-        return additionProduct;
-    }
     #endregion
     #region Class Defs
-    public struct TimeSignature
+    public class Beat
     {
-        [HideInInspector]//there is a reason its a float IDK what it is but there is one
-        public float topNumber; //3.5/4 time sig FTW
-        [HideInInspector]
-        public float bottomNumber;
+        public float length = 0;
+        public int Priority = 0;
 
-        //todo make a 4+4+3 time signature different than an 8+3
-
-        public string TimeSignatureDisplay;
-
+        #region Constructors
+        public Beat(float length, int priority = 0)
+        {
+            this.length = length;
+        }
+        #endregion
+        #region Beat Defs
+        public static Beat Whole = new Beat(4);
+        public static Beat DottedHalf = new Beat(3);
+        public static Beat Half = new Beat(2);
+        public static Beat DottedQuarter = new Beat(1.5f);
+        public static Beat Quarter = new Beat(1);
+        public static Beat DottedEighth = new Beat(.75f);
+        public static Beat Eighth = new Beat(.5f);
+        #endregion
+        public static implicit operator Beat(float length)
+        {
+            return new Beat(length);
+        }
+    }// just for readability and random assignment
+    public class TimeSignature
+    { //Rhythm constructed based on time signature
+        public int topNumber;
+        public int bottomNumber;
+        public Beat[] beatLengths;
         //constructor
-        public TimeSignature(float TopNumber, float BottomNumber)
+        private TimeSignature(int TopNumber, int BottomNumber) //for singles shouldnt need a new construction
         {
             topNumber = TopNumber;
             bottomNumber = BottomNumber;
 
-            TimeSignatureDisplay = topNumber.ToString() + "/" + bottomNumber.ToString();
+            //time signature is topnumber bottomNumbers per measure
+            Beat[] timeSigStorage = new Beat[topNumber];
+            for (int i = 0; i < timeSigStorage.Length; i++)
+            {
+                timeSigStorage[i] = new Beat(1 / (float)bottomNumber, GetAccentsFromInt(topNumber)[i]);
+            }
+            beatLengths = timeSigStorage;
+            
         }
-        //add your own here and YOU make up names for them
-        public static TimeSignature CommonTime = new TimeSignature(4, 4);
-        public static TimeSignature CutTime = new TimeSignature(2, 2);
+        public TimeSignature(int[] topNumbers, int bottomNumber) //for combination time signatures
+        {
+            topNumber = 0;
+            this.bottomNumber = bottomNumber;
+
+            for (int i = 0; i < topNumbers.Length; i++)
+            {
+                topNumber += topNumbers[i];
+            }
+
+            beatLengths = new Beat[topNumber];
+            for (int i = 0; i < topNumbers.Length; i++)
+            {
+                for (int ii = 0; ii < topNumbers[i]; ii++)
+                {
+                    beatLengths[i] = new Beat(1 / (float)bottomNumber, GetAccentsFromInt(topNumbers[i])[ii]);
+                }
+            }
+        }
+
+        #region TimeSignature Defs
+        public static TimeSignature CommonTime = new TimeSignature(4, 4); //emphasis on 1 and 3
+        public static TimeSignature CutTime = new TimeSignature(2, 2); //emphasis on 1 and 2
+
+        public static TimeSignature SimpleDuple = new TimeSignature(2, 4);
+        public static TimeSignature SimpleTriple = new TimeSignature(3, 4);
+
+        public static TimeSignature ComplexDuple = new TimeSignature(6, 8); //2+2+2 emphasis on 1 3 5
+        public static TimeSignature ComplexTriple = new TimeSignature(9, 8); //3+3+3 emphasis on 1 4 7
+        public static TimeSignature ComplexQuadRuple = new TimeSignature(12, 8); // 3+3 +3+3 +3+3 emphasis on 1 4 7 11
+
+        public static TimeSignature TwoPlusThree = new TimeSignature(new int[] { 2, 3 }, 4);
+        public static TimeSignature ThreeThree = new TimeSignature(3, 3);
+        #endregion
+        private static int[] GetAccentsFromInt(int topNumber)
+        {
+            int[] intStorage = new int[topNumber];
+            if (topNumber == 6) //specifically for duples
+            {
+                int counter = 1;
+                for (int i = 0; i < topNumber; i++)
+                {
+                    if (counter == 1) intStorage[i] = 1;
+                    else intStorage[i] = 2;
+                    counter++;
+                    if (counter >= 2) counter = 1;
+                }
+            }
+            else if (topNumber % 3 == 0)
+            {
+                int counter = 1;
+                for (int i = 0; i < topNumber; i++)
+                {
+                    if (counter == 1) intStorage[i] = 1;
+                    else intStorage[i] = topNumber/3+1;
+                    counter++;
+                    if (counter >= 3) counter = 1;
+                }
+            }
+            else if (topNumber % 2 == 0)
+            {
+                int counter = 1;
+                for (int i = 0; i < topNumber; i++)
+                {
+                    if (counter == 1) intStorage[i] = 1;
+                    else intStorage[i] = topNumber/2+1;
+                    counter++;
+                    if (counter >= 2) counter = 1;
+                }
+            }
+            return intStorage;
+        }
+    }
+    public class Rhythm
+    {
+        //Phrase Assigns constructs notes based on rhythm
+        public TimeSignature timeSignature = TimeSignature.CommonTime;
+        public Beat[] beats;
+
+        #region Constructors
+        public Rhythm(Beat[] beats)
+        {
+            this.beats = beats;
+        }
+        public Rhythm(TimeSignature timeSignature)// First Iteration to provide structure
+        {
+            this.timeSignature = timeSignature;
+            Beat[] beatStorage = timeSignature.beatLengths;
+
+            beatStorage = SubDivide(beatStorage);
+            beatStorage = Combine(beatStorage);//add this to combine method
+            this.beats = beatStorage;
+        }
+        #endregion
+        #region static Methods
+        private static Beat[] SubDivide(Beat[] oldBeats)
+        {
+            Beat[] MaxStorage = new Beat[oldBeats.Length * 2];
+            for (int i = 0; i < oldBeats.Length; i++)
+            {
+                MaxStorage[i * 2] = oldBeats[i];
+            }
+            for (int i = 0; i < oldBeats.Length; i++)
+            {
+                if (Random.Range(0, (float)1) < 1f / (float)oldBeats[i].Priority + 2)
+                {
+                    MaxStorage[i] = new Beat(oldBeats[i].length / 2f, oldBeats[i].Priority);
+                    MaxStorage[i + 1] = new Beat(oldBeats[i].length / 2f, oldBeats[i].Priority);
+                }
+            }
+            MaxStorage = PurgeNull(MaxStorage);
+            return MaxStorage;
+        } //should redesign this future me problem
+        private static Beat[] Combine(Beat[] oldBeats)
+        {
+            Beat[] beatStorage = new Beat[oldBeats.Length];
+            for (int i = 0; i < oldBeats.Length - 1; i++)
+            {
+                if(Random.Range(0,(float)1) > 1f / (float)oldBeats[i].Priority + 2)
+                {
+                    oldBeats[i] = new Beat(oldBeats[i].length * 2f, oldBeats[i].Priority);
+                    oldBeats[i + 1] = new Beat(0);
+                }
+            }
+
+            beatStorage = PurgeNull(beatStorage);
+            return beatStorage;
+        }
+        private  static Beat[] PurgeNull(Beat[] oldBeats) //Call once
+        {
+            int counter = 0;
+            for (int i = 0; i < oldBeats.Length - 1; i++)
+            {
+                Debug.Log(i);
+                Debug.Log(oldBeats[i].length);
+                if (oldBeats[i].length == 0 || oldBeats[i] == null)
+                {
+                    counter++;
+                }
+            }
+            Beat[] BeatStorage = new Beat[oldBeats.Length - counter];
+
+            counter = 0;
+            for (int i = 0; i < oldBeats.Length; i++)
+            {
+                if(oldBeats[i].length < 0) BeatStorage[i + counter] = oldBeats[i];
+                if (oldBeats[i].length == 0) counter++;
+            }
+            return BeatStorage;
+        }
+        #endregion
     }
     public class Note
     {
         public string name;
         public int noteID;
 
-        public float noteLength = 1;
+        public Beat beat = 1;
         public int octave = 1;
 
         //for constructing Phrases
         public bool isAccent = false;
-        public bool isRelative = false;
-        public bool toAccent = false;
 
         #region Constructors
         private Note(int ID, string name) //for static definition do not use
@@ -161,20 +264,30 @@ public class MusicDefinitions : MonoBehaviour
             noteID = ID;
             this.name = name;
         }
-        public Note(Note note, float length, int octave) //note has ID and name Preconstructed
-        {
+        public Note(Note note, Beat length, int octave) //note has ID and name Preconstructed
+        { 
             this.noteID = note.noteID;
-            this.name = octave.ToString() + "_" + note.name;
+            this.name = note.name;
 
-            this.noteLength = length;
+            this.beat = length;
             this.octave = octave;
         }
         public Note(Note note, int octave)//Note has ID and Name Preconstructed
         {
             this.noteID = note.noteID;
-            this.name = note.name;
+            this.name = octave.ToString() + "_" + note.name;
             this.octave = octave;
             //default length
+        }
+        public Note(Beat beat, bool isAccent, Note note) //Phrase calls using Rhythm
+        {
+            this.beat = beat;
+            this.isAccent = isAccent;
+
+            noteID = note.noteID;
+            octave = note.octave;
+            name = note.name;
+
         }
         #endregion
         #region Note Defs
@@ -225,10 +338,6 @@ public class MusicDefinitions : MonoBehaviour
                 default: return Note.Rest;
             }
         }//used for Unique ID and Rest
-        public static implicit operator int(Note noteclass)
-        {
-            return noteclass.noteID; //Leverage Preconstructed NoteID in class def
-        }//used NoteType not Unique NoteID
         public static implicit operator Note(string noteString)
         {
             // if you want explicite note
@@ -246,51 +355,19 @@ public class MusicDefinitions : MonoBehaviour
                 return noteID;
             }
         }//used for NoteType and Unique ID
-        public static implicit operator string(Note noteclass)
-        {
-            return noteclass.name; //if its a note it has a name
-        }//used for NoteType and Unique ID
     }
     public class Phrase
     {
         //storage hopefuly i can do some fun UI shenanigans
         public Note[] notes;
-        public bool isChromatic = true; // is not relative, is relative to last note, is relative to last accent
-        public TimeSignature timeSignature; //only for randomization //Unused
-
-        public int phraseSize;
-        public float time;
+        public Rhythm Rhythm;
 
         #region Constructors
         public Phrase(Note[] notes) //assumes notes has valid info, assums not Gen Phrase
         {
-            this.isChromatic = true;
-
             this.notes = notes;
-            this.phraseSize = notes.Length;
-
-            for (int i = 0; i < notes.Length; i++)
-            {
-                this.time += notes[i].noteLength;
-            }
         }
-        public Phrase(Note[] notes, float[] notelength, int[] octaves) //assumes not Gen Phrase
-        {
-            for (int i = 0; i < notes.Length; i++)
-            {
-                notes[i] = new Note(notes[i], notelength[i], octaves[i]);
-            }
-            new Phrase(notes);
-        }
-        public Phrase(Note[] notes, float[] noteLength) //Assumes Octaves, assumes not Gen phrase, should remove? 
-        {
-            for (int i = 0; i < notes.Length; i++)
-            {
-                notes[i] = new Note(notes[i], noteLength[i], 1);
-            }
-            new Phrase(notes);
-        }
-        public Phrase(TimeSignature timSig, int mode, bool isChromatic, bool isAscending,bool isNoteDistanceClose, Note minNote, Note MaxNote)
+        public Phrase(Rhythm rhythm)
         {
 
         }
@@ -356,7 +433,7 @@ public class MusicDefinitions : MonoBehaviour
 
             for (int i = 1; i < vs.Length; i++)
             {
-                notes[i] = notes[i - 1] + vs[i - 1];
+                notes[i] = notes[i - 1].noteID + vs[i - 1];
             }
             return notes;
         }
@@ -372,7 +449,15 @@ public class MusicDefinitions : MonoBehaviour
     {
         Chord[] chords;
         int size;
+    }
+    public class Measure
+    {
 
+    }
+    public class Song
+    {
+        TimeSignature timeSignature;
+        Phrase phrase;
     }
     #endregion
 }
